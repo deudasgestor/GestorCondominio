@@ -7,13 +7,16 @@ import {
     Users,
     Receipt,
     LogOut,
-    CreditCard
+    CreditCard,
+    Settings,
+    ShieldCheck
 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
 import { cn } from "@/utils/cn"
+import { useEffect, useState } from "react"
 
-const menuItems = [
+const mainMenu = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Clientes", href: "/clients", icon: Users },
     { name: "Transacciones", href: "/transactions", icon: Receipt },
@@ -23,6 +26,15 @@ export function Sidebar() {
     const pathname = usePathname()
     const router = useRouter()
     const supabase = createClient()
+    const [userEmail, setUserEmail] = useState<string>("")
+
+    useEffect(() => {
+        async function getUser() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) setUserEmail(user.email || "")
+        }
+        getUser()
+    }, [])
 
     const handleSignOut = async () => {
         await supabase.auth.signOut()
@@ -31,47 +43,74 @@ export function Sidebar() {
     }
 
     return (
-        <div className="flex flex-col h-screen w-64 bg-zinc-950 border-r border-zinc-900">
-            <div className="flex items-center gap-3 px-6 py-8">
-                <div className="p-2 bg-blue-600 rounded-lg">
-                    <CreditCard className="w-6 h-6 text-white" />
+        <aside className="flex flex-col h-screen w-[240px] bg-[#0f172a] fixed left-0 top-0 z-40">
+            {/* Logo */}
+            <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
+                <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-white tracking-tight">FinanzasPro</span>
+                <div>
+                    <span className="text-white font-bold text-base tracking-tight">FinanzasPro</span>
+                    <p className="text-[11px] text-slate-400">Admin Portal</p>
+                </div>
             </div>
 
-            <nav className="flex-1 px-4 space-y-2">
-                {menuItems.map((item) => {
-                    const isActive = pathname === item.href
+            {/* Main Navigation */}
+            <nav className="flex-1 px-3 py-4 space-y-1">
+                {mainMenu.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
                     return (
                         <Link
                             key={item.name}
                             href={item.href}
                             className={cn(
-                                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-150",
                                 isActive
-                                    ? "bg-blue-600/10 text-blue-500"
-                                    : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
+                                    : "text-slate-400 hover:text-white hover:bg-white/5"
                             )}
                         >
-                            <item.icon className={cn(
-                                "w-5 h-5",
-                                isActive ? "text-blue-500" : "text-zinc-500 group-hover:text-zinc-300"
-                            )} />
-                            <span className="font-medium">{item.name}</span>
+                            <item.icon className="w-[18px] h-[18px]" />
+                            {item.name}
                         </Link>
                     )
                 })}
+
+                <div className="pt-6 pb-2 px-3">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold">Configuración</p>
+                </div>
+                <Link
+                    href="#"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                >
+                    <Settings className="w-[18px] h-[18px]" />
+                    Preferencias
+                </Link>
+                <Link
+                    href="#"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                >
+                    <ShieldCheck className="w-[18px] h-[18px]" />
+                    Seguridad
+                </Link>
             </nav>
 
-            <div className="p-4 mt-auto border-t border-zinc-900">
+            {/* User section */}
+            <div className="p-3 border-t border-white/10">
                 <button
                     onClick={handleSignOut}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-zinc-400 hover:text-red-400 hover:bg-red-400/5 rounded-xl transition-all duration-200"
+                    className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all group"
                 >
-                    <LogOut className="w-5 h-5" />
-                    <span className="font-medium">Cerrar Sesión</span>
+                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                        {userEmail?.charAt(0).toUpperCase() || "U"}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                        <p className="text-xs font-medium text-white truncate">{userEmail || "Usuario"}</p>
+                        <p className="text-[10px] text-slate-500">Cerrar Sesión</p>
+                    </div>
+                    <LogOut className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </button>
             </div>
-        </div>
+        </aside>
     )
 }
