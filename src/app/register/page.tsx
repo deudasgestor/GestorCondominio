@@ -18,7 +18,7 @@ export default function RegisterPage() {
         setLoading(true)
         setError(null)
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
@@ -30,8 +30,14 @@ export default function RegisterPage() {
             setError(error.message)
             setLoading(false)
         } else {
-            alert("Registro exitoso. Revisa tu correo para verificar tu cuenta.")
-            router.push("/login")
+            // Si la verificación de email está desactivada en Supabase, data.session existirá inmediatamente
+            if (data.session) {
+                router.push("/dashboard")
+                router.refresh()
+            } else {
+                alert("Registro exitoso. Revisa tu correo para verificar tu cuenta.")
+                router.push("/login")
+            }
         }
     }
 
