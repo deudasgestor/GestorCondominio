@@ -1,165 +1,178 @@
 import { createClient } from "@/utils/supabase/server"
-import {
-    TrendingUp,
-    ArrowUpRight,
-    Plus,
-    CreditCard,
-    Banknote,
-    Wallet,
-    Search,
-    Bell,
-    Download,
-    Filter,
-} from "lucide-react"
+import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, CreditCard, Banknote, Wallet, Filter, Download } from "lucide-react"
 import Link from "next/link"
+import { DashboardTrends } from "@/components/DashboardTrends"
 
 export default async function DashboardPage() {
     const supabase = await createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Obtener transacciones de los últimos 6 meses
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+    sixMonthsAgo.setDate(1)
+    sixMonthsAgo.setHours(0, 0, 0, 0)
 
-    // Obtener transacciones del mes actual
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-    const { data: monthTransactions } = await supabase
-        .from("transactions")
-        .select("amount, type")
-        .gte("date", startOfMonth.toISOString().split('T')[0])
-
-    const creditosMes = monthTransactions
-        ?.filter(t => t.type === 'credit')
-        .reduce((sum, t) => sum + Number(t.amount), 0) || 0
-
-    const cobranzaMes = monthTransactions
-        ?.filter(t => t.type === 'payment')
-        .reduce((sum, t) => sum + Number(t.amount), 0) || 0
-
-    // Histórico total para cartera activa
     const { data: allTransactions } = await supabase
         .from("transactions")
-        .select("amount, type")
+        .select("amount, type, date")
+        .gte("date", sixMonthsAgo.toISOString())
 
-    const totalCreditos = allTransactions
-        ?.filter(t => t.type === 'credit')
-        .reduce((sum, t) => sum + Number(t.amount), 0) || 0
+    // Chart data
+    const months = []
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date()
+        d.setMonth(d.getMonth() - i)
+        months.push({ key: d.toISOString().substring(0, 7), label: d.toLocaleDateString("es-MX", { month: "short" }) })
+    }
+    const chartData = months.map(m => {
+        const mt = allTransactions?.filter(t => t.date.startsWith(m.key)) || []
+        return {
+            month: m.label,
+            credito: mt.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0),
+            cobranza: mt.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0),
+        }
+    })
 
-    const totalPagos = allTransactions
-        ?.filter(t => t.type === 'payment')
-        .reduce((sum, t) => sum + Number(t.amount), 0) || 0
+    // Mes actual vs mes anterior
+    const currentMonthKey = new Date().toISOString().substring(0, 7)
+    const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1)
+    const prevMonthKey = prevDate.toISOString().substring(0, 7)
 
+    const thisMonth = allTransactions?.filter(t => t.date.startsWith(currentMonthKey)) || []
+    const prevMonth = allTransactions?.filter(t => t.date.startsWith(prevMonthKey)) || []
+
+    const creditosMes = thisMonth.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0)
+    const cobranzaMes = thisMonth.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0)
+    const prevCreditosMes = prevMonth.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0)
+    const prevCobranzaMes = prevMonth.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0)
+
+    const { data: totals } = await supabase.from("transactions").select("amount, type")
+    const totalCreditos = totals?.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0) || 0
+    const totalPagos = totals?.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0) || 0
     const carteraActiva = totalCreditos - totalPagos
 
-    // Obtener las últimas 5 transacciones con datos de clientes
+    const pctCredito = prevCreditosMes ? ((creditosMes - prevCreditosMes) / prevCreditosMes * 100) : 0
+    const pctCobranza = prevCobranzaMes ? ((cobranzaMes - prevCobranzaMes) / prevCobranzaMes * 100) : 0
+
     const { data: recentTransactions } = await supabase
         .from("transactions")
-        .select(`
-      *,
-      clients (name)
-    `)
+        .select("*, clients(name)")
         .order("date", { ascending: false })
-        .limit(5)
+        .limit(8)
 
-    const stats = [
+    const mesLabel = new Date().toLocaleDateString("es-MX", { month: "long", year: "numeric" })
+
+    const statCards = [
         {
-            label: "Monthly Credit",
+            label: "CRÉDITO MENSUAL",
             value: creditosMes,
+            pct: pctCredito,
             icon: CreditCard,
-            color: "text-orange-500",
-            bgIcon: "bg-orange-50",
-            barColor: "bg-orange-500",
-            barBg: "bg-orange-100",
+            iconBg: "#fef2f2",
+            iconColor: "#ef4444",
+            svgPaths: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 6h16",
         },
         {
-            label: "Monthly Collections",
+            label: "COBRANZA MENSUAL",
             value: cobranzaMes,
+            pct: pctCobranza,
             icon: Banknote,
-            color: "text-emerald-500",
-            bgIcon: "bg-emerald-50",
-            barColor: "bg-emerald-500",
-            barBg: "bg-emerald-100",
+            iconBg: "#f0fdf4",
+            iconColor: "#22c55e",
+            svgPaths: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-4H9l3-3 3 3h-2v4z",
         },
         {
-            label: "Total Active Portfolio",
+            label: "CARTERA ACTIVA TOTAL",
             value: carteraActiva,
+            pct: null,
             icon: Wallet,
-            color: "text-blue-500",
-            bgIcon: "bg-blue-50",
-            barColor: "bg-blue-500",
-            barBg: "bg-blue-100",
+            iconBg: "#eff6ff",
+            iconColor: "#3b82f6",
+            svgPaths: "M21 18v1c0 1.1-.9 2-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14c1.1 0 2 .9 2 2v1h-9a2 2 0 00-2 2v8a2 2 0 002 2h9zm-9-2h10V8H12v8zm4-2.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z",
         },
     ]
 
     return (
-        <div className="space-y-8 max-w-[1200px]">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Overview</h1>
-                    <p className="text-slate-500 text-sm mt-0.5">Bienvenido, aquí está lo que sucede hoy.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar transacciones, clientes..."
-                            className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 w-[280px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
-                        />
-                    </div>
-                    <button className="relative p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
-                        <Bell className="w-4 h-4 text-slate-500" />
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full"></span>
-                    </button>
-                    <Link
-                        href="/transactions"
-                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm"
-                    >
-                        <Plus className="w-4 h-4" />
-                        New Transaction
-                    </Link>
-                </div>
+        <div className="space-y-6 max-w-[1200px]">
+            {/* Page Header */}
+            <div>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Resumen General</h1>
+                <p className="text-slate-500 text-sm mt-1 capitalize">Estado financiero — {mesLabel}</p>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {stats.map((stat) => (
-                    <div
-                        key={stat.label}
-                        className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                        <div className="flex items-start justify-between mb-4">
-                            <div>
-                                <p className="text-[13px] font-medium text-slate-500">{stat.label}</p>
-                                <h3 className="text-[28px] font-bold text-slate-900 mt-1 tracking-tight">
-                                    ${stat.value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                                </h3>
+            <div className="grid grid-cols-3 gap-5">
+                {statCards.map((card) => (
+                    <div key={card.label} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+                        {/* Big background icon */}
+                        <div className="absolute right-4 top-4 opacity-[0.07]">
+                            <svg className="w-28 h-28" viewBox="0 0 24 24" fill={card.iconColor}>
+                                <path d={card.svgPaths} />
+                            </svg>
+                        </div>
+
+                        <div className="flex items-start gap-3 mb-4 relative">
+                            <div className="p-2 rounded-lg" style={{ background: card.iconBg }}>
+                                <card.icon className="w-4 h-4" style={{ color: card.iconColor }} />
                             </div>
-                            <div className={`${stat.bgIcon} p-2.5 rounded-xl`}>
-                                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                            <span className="text-[10px] font-black tracking-widest pt-2" style={{ color: "#94a3b8" }}>
+                                {card.label}
+                            </span>
+                        </div>
+
+                        <p className="text-3xl font-black text-slate-900 relative">
+                            ${card.value.toLocaleString("es-MX", { minimumFractionDigits: 0 })}
+                        </p>
+
+                        {card.pct !== null && (
+                            <div className="flex items-center gap-1.5 mt-2 relative">
+                                {card.pct >= 0 ? (
+                                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                                ) : (
+                                    <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                                )}
+                                <span className={`text-xs font-bold ${card.pct >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                    {card.pct >= 0 ? "+" : ""}{card.pct.toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-slate-400">vs mes anterior</span>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-2 mb-3">
-                            <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
-                            <span className="text-xs font-semibold text-emerald-500">vs last month</span>
-                        </div>
-                        <div className={`h-1.5 ${stat.barBg} rounded-full overflow-hidden`}>
-                            <div className={`h-full ${stat.barColor} rounded-full`} style={{ width: '65%' }}></div>
-                        </div>
+                        )}
+                        {card.pct === null && (
+                            <p className="text-xs text-slate-400 mt-2">Saldo acumulado histórico</p>
+                        )}
                     </div>
                 ))}
             </div>
 
+            {/* Trends Chart */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-base font-black text-slate-900">Tendencias Financieras</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">Crédito vs Cobranza — últimos 6 meses</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Crédito
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Cobranza
+                        </span>
+                    </div>
+                </div>
+                <DashboardTrends data={chartData} />
+            </div>
+
             {/* Recent Transactions */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-                    <h2 className="text-lg font-bold text-slate-900">Recent Transactions</h2>
+                    <h2 className="text-base font-black text-slate-900">Transacciones Recientes</h2>
                     <div className="flex items-center gap-2">
-                        <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
-                            <Filter className="w-4 h-4" />
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold transition-colors">
+                            <Filter className="w-3.5 h-3.5" /> Filtrar
                         </button>
-                        <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
-                            <Download className="w-4 h-4" />
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold transition-colors">
+                            <Download className="w-3.5 h-3.5" /> Exportar
                         </button>
                     </div>
                 </div>
@@ -167,65 +180,67 @@ export default async function DashboardPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
-                                <th className="px-6 py-3 text-left">Date</th>
-                                <th className="px-6 py-3 text-left">Client</th>
-                                <th className="px-6 py-3 text-left">Type</th>
-                                <th className="px-6 py-3 text-right">Amount</th>
-                                <th className="px-6 py-3 text-right">Remaining Balance</th>
+                            <tr style={{ background: "#f8faff" }}>
+                                <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente / Entidad</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
+                                <th className="px-6 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Monto</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {(!recentTransactions || recentTransactions.length === 0) ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-16 text-center">
+                                    <td colSpan={4} className="px-6 py-16 text-center">
                                         <div className="flex flex-col items-center gap-3">
-                                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center">
-                                                <Receipt className="w-6 h-6 text-slate-300" />
+                                            <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center">
+                                                <TrendingUp className="w-6 h-6 text-slate-300" />
                                             </div>
-                                            <p className="text-sm text-slate-400">No hay transacciones registradas.</p>
-                                            <Link href="/transactions" className="text-sm text-blue-600 font-medium hover:underline">
-                                                Registra tu primera transacción →
+                                            <p className="text-sm text-slate-400">No hay transacciones aún.</p>
+                                            <Link href="/transactions" className="text-sm text-emerald-600 font-semibold hover:underline">
+                                                Registra tu primera →
                                             </Link>
                                         </div>
                                     </td>
                                 </tr>
                             ) : recentTransactions.map((t: any) => {
-                                const initials = t.clients?.name?.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase() || "?"
-                                const colors = ["bg-blue-100 text-blue-700", "bg-purple-100 text-purple-700", "bg-amber-100 text-amber-700", "bg-rose-100 text-rose-700", "bg-teal-100 text-teal-700"]
-                                const colorIdx = t.clients?.name?.charCodeAt(0) % colors.length || 0
+                                const name = t.clients?.name || "Sin cliente"
+                                const initials = name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()
+                                const colors = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#14b8a6", "#06b6d4", "#f97316", "#84cc16"]
+                                const colorIdx = name.charCodeAt(0) % colors.length
+                                const trxRef = `#TRX-${String(t.id).substring(0, 6).toUpperCase()}`
 
                                 return (
-                                    <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4 text-sm text-slate-500">
-                                            {new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
+                                    <tr key={t.id} className="group hover:bg-slate-50/60 transition-colors">
+                                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                                            {new Date(t.date).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${colors[colorIdx]}`}>
+                                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                                                    style={{ background: colors[colorIdx] }}>
                                                     {initials}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-slate-800">{t.clients?.name || "N/A"}</p>
+                                                    <p className="text-sm font-semibold text-slate-800">{name}</p>
+                                                    <p className="text-[11px] text-slate-400">{trxRef}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${t.type === 'credit' ? 'text-orange-600' : 'text-emerald-600'
-                                                }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${t.type === 'credit' ? 'bg-orange-500' : 'bg-emerald-500'
-                                                    }`}></span>
-                                                {t.type === 'credit' ? 'Purchase' : 'Payment'}
-                                            </span>
+                                            {t.type === 'credit' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-50 text-red-600 border border-red-100">
+                                                    <ArrowUpRight className="w-3 h-3" /> Crédito
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                    <ArrowDownLeft className="w-3 h-3" /> Cobranza
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <span className={`text-sm font-semibold ${t.type === 'credit' ? 'text-slate-900' : 'text-emerald-600'
-                                                }`}>
-                                                {t.type === 'payment' ? '+' : ''}${Number(t.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                            <span className={`text-sm font-black ${t.type === 'credit' ? 'text-slate-800' : 'text-emerald-600'}`}>
+                                                {t.type === 'credit' ? '' : '+'}${Number(t.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right text-sm text-slate-500 font-medium">
-                                            —
                                         </td>
                                     </tr>
                                 )
@@ -233,17 +248,18 @@ export default async function DashboardPage() {
                         </tbody>
                     </table>
                 </div>
+
+                {recentTransactions && recentTransactions.length > 0 && (
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                        <p className="text-xs text-slate-400">
+                            Mostrando <span className="font-semibold text-slate-600">1–{recentTransactions.length}</span> transacciones recientes
+                        </p>
+                        <Link href="/transactions" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 transition-colors">
+                            Ver todas →
+                        </Link>
+                    </div>
+                )}
             </div>
         </div>
-    )
-}
-
-function Receipt({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
-            <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
-            <path d="M12 17.5v-11" />
-        </svg>
     )
 }

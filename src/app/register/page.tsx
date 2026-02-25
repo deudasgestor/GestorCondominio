@@ -55,7 +55,7 @@ export default function RegisterPage() {
                 {/* Card */}
                 <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm">
                     <div className="text-center mb-6">
-                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create your account</h1>
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Crea tu cuenta</h1>
                         <p className="mt-1 text-sm text-slate-500">Crea tu cuenta SaaS para gestionar créditos</p>
                     </div>
 

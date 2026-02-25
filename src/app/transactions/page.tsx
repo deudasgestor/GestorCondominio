@@ -2,155 +2,181 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { useRouter } from "next/navigation"
-import { ArrowRight, CheckCircle2 } from "lucide-react"
+import { Plus, History, ArrowUpRight, ArrowDownLeft } from "lucide-react"
+import { NewTransactionModal } from "@/components/NewTransactionModal"
+import { DataActions } from "@/components/DataActions"
 
 export default function TransactionsPage() {
-    const [clients, setClients] = useState<any[]>([])
-    const [clientId, setClientId] = useState("")
-    const [type, setType] = useState<'credit' | 'payment'>('credit')
-    const [amount, setAmount] = useState("")
-    const [description, setDescription] = useState("")
-    const [loading, setLoading] = useState(false)
-    const [success, setSuccess] = useState(false)
-    const router = useRouter()
     const supabase = createClient()
+    const [allTransactions, setAllTransactions] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+    const [modalOpen, setModalOpen] = useState(false)
 
-    useEffect(() => {
-        async function fetchClients() {
-            const { data } = await supabase.from("clients").select("id, name").order("name")
-            if (data) setClients(data)
-        }
-        fetchClients()
-    }, [])
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
+    const fetchTransactions = async () => {
         setLoading(true)
-
-        const { error } = await supabase.from("transactions").insert([
-            {
-                client_id: clientId,
-                type,
-                amount: parseFloat(amount),
-                description,
-                date: new Date().toISOString().split('T')[0]
-            }
-        ])
-
-        if (!error) {
-            setSuccess(true)
-            setAmount("")
-            setDescription("")
-            setTimeout(() => {
-                setSuccess(false)
-                router.refresh()
-            }, 3000)
-        } else {
-            alert("Error al registrar: " + error.message)
-        }
+        const { data } = await supabase
+            .from("transactions")
+            .select("*, clients(name)")
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(50)
+        if (data) setAllTransactions(data)
         setLoading(false)
     }
 
+    useEffect(() => { fetchTransactions() }, [])
+
+    const totalCredito = allTransactions.filter((t: any) => t.type === 'credit').reduce((s: number, t: any) => s + Number(t.amount), 0)
+    const totalAbono = allTransactions.filter((t: any) => t.type === 'payment').reduce((s: number, t: any) => s + Number(t.amount), 0)
+
+    const avatarColors = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#14b8a6", "#06b6d4", "#f97316", "#84cc16"]
+
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Nueva Transacción</h1>
-                <p className="text-slate-500 text-sm mt-0.5">Registra una compra a crédito o un abono de cliente.</p>
+        <div className="space-y-6 max-w-[1100px]">
+            {/* Header */}
+            <div className="flex items-end justify-between">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Transacciones</h1>
+                    <p className="text-slate-500 text-sm mt-1">Historial de compras a crédito y abonos de clientes.</p>
+                </div>
+                <div className="flex items-center gap-4">
+                    <DataActions type="transactions" data={allTransactions} onImportSuccess={fetchTransactions} />
+                    <button
+                        onClick={() => setModalOpen(true)}
+                        className="flex items-center gap-2 px-5 py-3 text-white text-sm font-bold rounded-xl transition-all"
+                        style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", boxShadow: "0 4px 15px rgba(34,197,94,0.35)" }}
+                    >
+                        <Plus className="w-4 h-4" />
+                        Nueva Transacción
+                    </button>
+                </div>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-8 shadow-sm">
-                {success ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in">
-                        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">
-                            <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                        </div>
-                        <p className="text-xl font-bold text-slate-900">¡Transacción Registrada!</p>
-                        <p className="text-slate-500 text-sm">Los saldos han sido actualizados.</p>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 gap-5">
+                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                    <div className="absolute right-4 top-4 opacity-[0.06]">
+                        <ArrowUpRight className="w-24 h-24 text-red-500" />
                     </div>
-                ) : (
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Toggle */}
-                        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
-                            <button
-                                type="button"
-                                onClick={() => setType('credit')}
-                                className={`py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${type === 'credit'
-                                        ? "bg-white text-blue-600 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                            >
-                                Crédito
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setType('payment')}
-                                className={`py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${type === 'payment'
-                                        ? "bg-white text-emerald-600 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                            >
-                                Abono
-                            </button>
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-red-50 rounded-lg">
+                            <ArrowUpRight className="w-4 h-4 text-red-500" />
                         </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Cliente</label>
-                                <select
-                                    required
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all appearance-none"
-                                    value={clientId}
-                                    onChange={(e) => setClientId(e.target.value)}
-                                >
-                                    <option value="">Selecciona un cliente</option>
-                                    {clients.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Monto ($)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    required
-                                    placeholder="0.00"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-2xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all placeholder:text-slate-300"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Descripción</label>
-                                <textarea
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all h-24 resize-none"
-                                    placeholder="¿De qué trata esta transacción?"
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                />
-                            </div>
+                        <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Total Crédito</span>
+                    </div>
+                    <p className="text-3xl font-black text-slate-900">
+                        ${totalCredito.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">{allTransactions.filter(t => t.type === 'credit').length} operaciones</p>
+                </div>
+                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                    <div className="absolute right-4 top-4 opacity-[0.06]">
+                        <ArrowDownLeft className="w-24 h-24 text-emerald-500" />
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-emerald-50 rounded-lg">
+                            <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
                         </div>
+                        <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Total Cobrado</span>
+                    </div>
+                    <p className="text-3xl font-black text-emerald-700">
+                        ${totalAbono.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">{allTransactions.filter(t => t.type === 'payment').length} pagos</p>
+                </div>
+            </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading || !clientId || !amount}
-                            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm text-white transition-all shadow-sm ${loading ? "opacity-50 cursor-not-allowed bg-slate-400" :
-                                    type === 'credit' ? "bg-blue-600 hover:bg-blue-700" : "bg-emerald-600 hover:bg-emerald-700"
-                                }`}
-                        >
-                            {loading ? "Procesando..." : (
-                                <>
-                                    Confirmar {type === 'credit' ? "Crédito" : "Abono"}
-                                    <ArrowRight className="w-4 h-4" />
-                                </>
-                            )}
-                        </button>
-                    </form>
+            {/* Transaction History */}
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                        <History className="w-5 h-5 text-emerald-600" />
+                        <h2 className="text-base font-black text-slate-900">Historial Reciente</h2>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr style={{ background: "#f8faff" }}>
+                                <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente / Entidad</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Notas</th>
+                                <th className="px-6 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
+                                <th className="px-6 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {loading ? (
+                                <tr><td colSpan={5} className="px-6 py-16 text-center">
+                                    <div className="flex items-center justify-center gap-2 text-slate-400">
+                                        <div className="w-5 h-5 border-2 border-slate-200 border-t-emerald-500 rounded-full animate-spin" />
+                                        <span className="text-sm">Cargando...</span>
+                                    </div>
+                                </td></tr>
+                            ) : allTransactions.length === 0 ? (
+                                <tr><td colSpan={5} className="px-6 py-16 text-center text-sm text-slate-400">
+                                    No hay transacciones registradas aún.
+                                </td></tr>
+                            ) : allTransactions.map((t) => {
+                                const name = t.clients?.name || "Sin cliente"
+                                const initials = name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()
+                                const color = avatarColors[name.charCodeAt(0) % avatarColors.length]
+                                const trxRef = `#TRX-${String(t.id).substring(0, 6).toUpperCase()}`
+
+                                return (
+                                    <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
+                                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                                            {new Date(t.date).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
+                                                    style={{ background: color }}>
+                                                    {initials}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-slate-800">{name}</p>
+                                                    <p className="text-[10px] text-slate-400">{trxRef}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-400 max-w-[180px] truncate">
+                                            {t.description || "—"}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {t.type === 'credit' ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-50 text-red-600 border border-red-100">
+                                                    <ArrowUpRight className="w-3 h-3" /> Crédito
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                    <ArrowDownLeft className="w-3 h-3" /> Cobranza
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className={`text-sm font-black ${t.type === 'credit' ? 'text-slate-800' : 'text-emerald-600'}`}>
+                                                {t.type === 'credit' ? '' : '+'}${Number(t.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                {allTransactions.length > 0 && (
+                    <div className="px-6 py-4 border-t border-slate-100">
+                        <p className="text-xs text-slate-400">
+                            Mostrando <span className="font-semibold text-slate-600">1–{allTransactions.length}</span> resultados
+                        </p>
+                    </div>
                 )}
             </div>
+
+            <NewTransactionModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSuccess={fetchTransactions} />
         </div>
     )
 }
