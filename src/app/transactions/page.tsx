@@ -6,6 +6,8 @@ import { Plus, History, ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { NewTransactionModal } from "@/components/NewTransactionModal"
 import { DataActions } from "@/components/DataActions"
 
+export const dynamic = "force-dynamic"
+
 export default function TransactionsPage() {
     const supabase = createClient()
     const [allTransactions, setAllTransactions] = useState<any[]>([])

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import { UserPlus, Search, ChevronRight, Users, AlertTriangle, CheckCircle } from "lucide-react"
 import { DataActions } from "@/components/DataActions"
 
+export const dynamic = "force-dynamic"
+
 export default function ClientsPage() {
     const [clients, setClients] = useState<any[]>([])
     const [loading, setLoading] = useState(true)

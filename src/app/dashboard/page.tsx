@@ -3,6 +3,8 @@ import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, CreditCard, Bank
 import Link from "next/link"
 import { DashboardTrends } from "@/components/DashboardTrends"
 
+export const dynamic = "force-dynamic"
+
 export default async function DashboardPage() {
     const supabase = await createClient()
 
