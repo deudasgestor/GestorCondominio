@@ -26,7 +26,7 @@ export function NewTransactionModal({ isOpen, onClose, onSuccess, preselectedCli
     const [warning, setWarning] = useState("")
     const dropdownRef = useRef<HTMLDivElement>(null)
 
-    const selectedClient = clients.find(c => c.id === clientId)
+    const selectedClient = clients.find((c: any) => c.id === clientId)
 
     useEffect(() => {
         if (preselectedClientId) setClientId(preselectedClientId)
@@ -50,7 +50,7 @@ export function NewTransactionModal({ isOpen, onClose, onSuccess, preselectedCli
         return () => document.removeEventListener("mousedown", handleClickOutside)
     }, [])
 
-    const filteredClients = clients.filter(c =>
+    const filteredClients = clients.filter((c: any) =>
         c.name.toLowerCase().includes(clientSearch.toLowerCase())
     )
 

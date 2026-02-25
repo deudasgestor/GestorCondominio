@@ -44,7 +44,7 @@ export function AppTopbar() {
 
         if (clients) {
             const alerts: Notification[] = []
-            clients.forEach(c => {
+            clients.forEach((c: any) => {
                 const balance = c.transactions.reduce((acc: number, t: any) => {
                     return t.type === 'credit' ? acc + Number(t.amount) : acc - Number(t.amount)
                 }, 0)

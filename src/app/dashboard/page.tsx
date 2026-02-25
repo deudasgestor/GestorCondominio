@@ -24,12 +24,12 @@ export default async function DashboardPage() {
         d.setMonth(d.getMonth() - i)
         months.push({ key: d.toISOString().substring(0, 7), label: d.toLocaleDateString("es-MX", { month: "short" }) })
     }
-    const chartData = months.map(m => {
-        const mt = allTransactions?.filter(t => t.date.startsWith(m.key)) || []
+    const chartData = months.map((m: any) => {
+        const mt = allTransactions?.filter((t: any) => t.date.startsWith(m.key)) || []
         return {
             month: m.label,
-            credito: mt.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0),
-            cobranza: mt.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0),
+            credito: mt.filter((t: any) => t.type === 'credit').reduce((s: number, t: any) => s + Number(t.amount), 0),
+            cobranza: mt.filter((t: any) => t.type === 'payment').reduce((s: number, t: any) => s + Number(t.amount), 0),
         }
     })
 
@@ -38,17 +38,17 @@ export default async function DashboardPage() {
     const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1)
     const prevMonthKey = prevDate.toISOString().substring(0, 7)
 
-    const thisMonth = allTransactions?.filter(t => t.date.startsWith(currentMonthKey)) || []
-    const prevMonth = allTransactions?.filter(t => t.date.startsWith(prevMonthKey)) || []
+    const thisMonth = allTransactions?.filter((t: any) => t.date.startsWith(currentMonthKey)) || []
+    const prevMonth = allTransactions?.filter((t: any) => t.date.startsWith(prevMonthKey)) || []
 
-    const creditosMes = thisMonth.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0)
-    const cobranzaMes = thisMonth.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0)
-    const prevCreditosMes = prevMonth.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0)
-    const prevCobranzaMes = prevMonth.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0)
+    const creditosMes = thisMonth.filter((t: any) => t.type === 'credit').reduce((s: number, t: any) => s + Number(t.amount), 0)
+    const cobranzaMes = thisMonth.filter((t: any) => t.type === 'payment').reduce((s: number, t: any) => s + Number(t.amount), 0)
+    const prevCreditosMes = prevMonth.filter((t: any) => t.type === 'credit').reduce((s: number, t: any) => s + Number(t.amount), 0)
+    const prevCobranzaMes = prevMonth.filter((t: any) => t.type === 'payment').reduce((s: number, t: any) => s + Number(t.amount), 0)
 
     const { data: totals } = await supabase.from("transactions").select("amount, type")
-    const totalCreditos = totals?.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount), 0) || 0
-    const totalPagos = totals?.filter(t => t.type === 'payment').reduce((s, t) => s + Number(t.amount), 0) || 0
+    const totalCreditos = totals?.filter((t: any) => t.type === 'credit').reduce((s: number, t: any) => s + Number(t.amount), 0) || 0
+    const totalPagos = totals?.filter((t: any) => t.type === 'payment').reduce((s: number, t: any) => s + Number(t.amount), 0) || 0
     const carteraActiva = totalCreditos - totalPagos
 
     const pctCredito = prevCreditosMes ? ((creditosMes - prevCreditosMes) / prevCreditosMes * 100) : 0
